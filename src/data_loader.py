@@ -4,6 +4,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
 import pandas as pd
 
@@ -31,16 +32,18 @@ class MarketingData:
     bookings: pd.DataFrame
 
 
-def load_dashboard_data(marketing_path: Path, budget_path: Path) -> MarketingData:
+def load_dashboard_data(marketing_path: Path | BinaryIO, budget_path: Path | BinaryIO) -> MarketingData:
     """Load all dashboard inputs from the restructured marketing and budget workbooks."""
 
-    validate_workbook_path(marketing_path)
-    validate_workbook_path(budget_path)
+    if isinstance(marketing_path, Path):
+        validate_workbook_path(marketing_path)
+    if isinstance(budget_path, Path):
+        validate_workbook_path(budget_path)
 
     marketing_excel = pd.ExcelFile(marketing_path, engine="openpyxl")
     budget_excel = pd.ExcelFile(budget_path, engine="openpyxl")
-    _validate_sheets(marketing_excel.sheet_names, EXPECTED_MARKETING_SHEETS, marketing_path.name)
-    _validate_sheets(budget_excel.sheet_names, EXPECTED_BUDGET_SHEETS, budget_path.name)
+    _validate_sheets(marketing_excel.sheet_names, EXPECTED_MARKETING_SHEETS, _source_name(marketing_path))
+    _validate_sheets(budget_excel.sheet_names, EXPECTED_BUDGET_SHEETS, _source_name(budget_path))
 
     return MarketingData(
         acquisition=_load_acquisition(marketing_excel),
@@ -53,6 +56,10 @@ def load_dashboard_data(marketing_path: Path, budget_path: Path) -> MarketingDat
         budget_monthly=_load_budget_monthly(budget_excel),
         bookings=_load_bookings(budget_excel),
     )
+
+
+def _source_name(source: Path | BinaryIO) -> str:
+    return source.name if hasattr(source, "name") else "hochgeladene Datei"
 
 
 def normalize_brand(value: object, default: str | None = None) -> str:
